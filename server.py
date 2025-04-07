@@ -11,9 +11,11 @@ import google.generativeai as generative
 import wave
 import datetime
 
-# Load API key
+# Load and configure API key globally for google.generativeai
 gemini_api_key = "AIzaSyC0jAjJsgxGUBOvEw8h_L5HlzRVkaS9T-0"
-MODEL = "gemini-2.0-flash-exp"  # Verify this model exists
+generative.configure(api_key=gemini_api_key)  # Configure API key for generative module
+
+MODEL = "gemini-1.5-flash"  # Updated to a known model (verify availability)
 
 # Initialize the client with the API key
 client = genai.Client(
@@ -32,14 +34,14 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
         config_data = json.loads(config_message)
         config = config_data.get("setup", {})
 
-        config["system_instruction"] = """You are a helpful tutor. Start with foundational explanations, break down complex concepts into simpler parts, and use clear examples and step-by-step solutions. Always be patient, encouraging, and focus on helping the student develop strong mathematical intuition and problem-solving skills."""
+        config["system_instruction"] = """You are a helpful math tutor. Start with foundational explanations, break down complex concepts into simpler parts, and use clear examples and step-by-step solutions. Always be patient, encouraging, and focus on helping the student develop strong mathematical intuition and problem-solving skills."""
         
         # Initialize audio buffers and control flags
         has_user_audio = False
         user_audio_buffer = b''
         has_assistant_audio = False
         assistant_audio_buffer = b''
-        should_accumulate_user_audio = True  # Control flag for user audio accumulation
+        should_accumulate_user_audio = True
 
         async with client.aio.live.connect(model=MODEL, config=config) as session:
             print(f"Connected to Gemini API for session {session_id}")
@@ -53,7 +55,6 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                             
                             if "realtime_input" in data:
                                 for chunk in data["realtime_input"]["media_chunks"]:
-                                    # Handle audio input
                                     if chunk["mime_type"] == "audio/pcm":
                                         if should_accumulate_user_audio:
                                             try:
@@ -66,8 +67,6 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                                             "mime_type": "audio/pcm",
                                             "data": chunk["data"]
                                         })
-                                    
-                                    # Handle image input
                                     elif chunk["mime_type"].startswith("image/"):
                                         current_conversation.append({
                                             "role": "user", 
@@ -78,7 +77,6 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                                             "data": chunk["data"]
                                         })
                             
-                            # Handle text input
                             elif "text" in data:
                                 text_content = data["text"]
                                 current_conversation.append({
@@ -105,14 +103,13 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                         try:
                             async for response in session.receive():
                                 if response.server_content is None:
-                                    continue  # Skip if no server content
+                                    continue
 
                                 model_turn = response.server_content.model_turn
                                 if model_turn:
                                     for part in model_turn.parts:
                                         if hasattr(part, 'text') and part.text is not None:
                                             await websocket.send(json.dumps({"text": part.text}))
-                                        
                                         elif hasattr(part, 'inline_data') and part.inline_data is not None:
                                             try:
                                                 should_accumulate_user_audio = False
@@ -131,7 +128,6 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                                     user_text = None
                                     assistant_text = None
                                     
-                                    # Transcribe user's audio if present
                                     if has_user_audio and user_audio_buffer:
                                         try:
                                             user_wav_base64 = convert_pcm_to_wav(user_audio_buffer, is_user_input=True)
@@ -143,7 +139,6 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                                         except Exception as e:
                                             print(f"Error processing user audio: {e}")
                                     
-                                    # Transcribe assistant's audio if present
                                     if has_assistant_audio and assistant_audio_buffer:
                                         try:
                                             assistant_wav_base64 = convert_pcm_to_wav(assistant_audio_buffer, is_user_input=False)
@@ -158,7 +153,6 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                                         except Exception as e:
                                             print(f"Error processing assistant audio: {e}")
                                     
-                                    # Reset audio states and buffers
                                     has_user_audio = False
                                     user_audio_buffer = b''
                                     has_assistant_audio = False
@@ -177,7 +171,6 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                 finally:
                     print("Gemini connection closed (receive)")
 
-            # Start send and receive tasks
             send_task = asyncio.create_task(send_to_gemini())
             receive_task = asyncio.create_task(receive_from_gemini())
             await asyncio.gather(send_task, receive_task)
@@ -198,7 +191,7 @@ def transcribe_audio(audio_data):
         else:
             return "Invalid audio data format."
             
-        transcription_client = generative.GenerativeModel(model_name="gemini-2.0-flash-lite")
+        transcription_client = generative.GenerativeModel(model_name="gemini-1.5-flash")  # Updated model
         
         prompt = """Generate a transcript of the speech. 
         Please do not include any other text in the response. 
@@ -230,7 +223,7 @@ def convert_pcm_to_wav(pcm_data, is_user_input=False):
         with wave.open(wav_buffer, 'wb') as wav_file:
             wav_file.setnchannels(1)  # mono
             wav_file.setsampwidth(2)  # 16-bit
-            wav_file.setframerate(16000 if is_user_input else 24000)  # 16kHz for user, 24kHz for assistant
+            wav_file.setframerate(16000 if is_user_input else 24000)
             wav_file.writeframes(pcm_data)
         
         wav_buffer.seek(0)
@@ -250,7 +243,7 @@ async def main() -> None:
     ):
         print("Running websocket server on 0.0.0.0:9084...")
         print("Math tutoring assistant ready to help")
-        await asyncio.Future()  # Keep the server running indefinitely
+        await asyncio.Future()
 
 if __name__ == "__main__":
     asyncio.run(main())
