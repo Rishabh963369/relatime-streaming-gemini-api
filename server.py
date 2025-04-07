@@ -15,7 +15,7 @@ import datetime
 gemini_api_key = "AIzaSyC0jAjJsgxGUBOvEw8h_L5HlzRVkaS9T-0"
 generative.configure(api_key=gemini_api_key)  # Configure API key for generative module
 
-MODEL = "gemini-1.5-flash"  # Updated to a known model (verify availability)
+MODEL = "gemini-2.0-flash-exp"  # Updated to a known model (verify availability)
 
 # Initialize the client with the API key
 client = genai.Client(
