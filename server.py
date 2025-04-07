@@ -5,7 +5,7 @@ import uuid
 from google import genai
 import base64
 from mem0 import Memory
-from websockets.server import WebSocketServerProtocol  # Updated import
+from websockets import WebSocketServerProtocol
 import websockets.server
 import io
 from pydub import AudioSegment
