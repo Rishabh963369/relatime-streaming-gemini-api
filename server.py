@@ -123,6 +123,16 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                                             except Exception as e:
                                                 print(f"Error processing assistant audio: {e}")
 
+                                # Handle interruption
+                                if response.server_content.interrupted:
+                                    print("Interruption detected by server")
+                                    # Clear assistant buffers and stop current turn
+                                    has_assistant_audio = False
+                                    assistant_audio_buffer = b''
+                                    should_accumulate_user_audio = True
+                                    await websocket.send(json.dumps({"interrupted": True}))
+                                    continue
+
                                 if response.server_content and response.server_content.turn_complete:
                                     print('\n<Turn complete>')
                                     user_text = None
@@ -153,12 +163,14 @@ async def gemini_session_handler(websocket: websockets.WebSocketServerProtocol):
                                         except Exception as e:
                                             print(f"Error processing assistant audio: {e}")
                                     
+                                    # Reset buffers after turn completion
                                     has_user_audio = False
                                     user_audio_buffer = b''
                                     has_assistant_audio = False
                                     assistant_audio_buffer = b''
                                     should_accumulate_user_audio = True
                                     print("Re-enabling user audio accumulation for next turn")
+
                         except websockets.exceptions.ConnectionClosedOK:
                             print("Client connection closed normally (receive)")
                             break
