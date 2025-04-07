@@ -16,13 +16,14 @@ import datetime
 
 # Load API key from environment
 
-gemini_api_key = 'AIzaSyC0jAjJsgxGUBOvEw8h_L5HlzRVkaS9T-0'
+gemini_api_key = "AIzaSyC0jAjJsgxGUBOvEw8h_L5HlzRVkaS9T-0"
 MODEL = "gemini-2.0-flash-exp"  # For multimodal
 
 client = genai.Client(
-  http_options={
-    'api_version': 'v1alpha',
-  }
+    api_key=gemini_api_key,  # Explicitly pass the API key
+    http_options={
+        'api_version': 'v1alpha',
+    }
 )
 
 config = {
